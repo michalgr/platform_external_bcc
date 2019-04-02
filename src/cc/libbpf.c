@@ -385,7 +385,7 @@ int bpf_prog_compute_tag(const struct bpf_insn *insns, int prog_len,
     .salg_type      = "hash",
     .salg_name      = "sha1",
   };
-  int shafd = socket(AF_ALG, SOCK_SEQPACKET, 0);
+  int shafd = socket(AF_ALG, SOCK_SEQPACKET | SOCK_CLOEXEC, 0);
   if (shafd < 0) {
     fprintf(stderr, "sha1 socket not available %s\n", strerror(errno));
     return -1;
@@ -396,7 +396,7 @@ int bpf_prog_compute_tag(const struct bpf_insn *insns, int prog_len,
     close(shafd);
     return ret;
   }
-  int shafd2 = accept(shafd, NULL, 0);
+  int shafd2 = accept4(shafd, NULL, 0, SOCK_CLOEXEC);
   if (shafd2 < 0) {
     fprintf(stderr, "sha1 accept fail %s\n", strerror(errno));
     close(shafd);
@@ -448,7 +448,7 @@ int bpf_prog_get_tag(int fd, unsigned long long *ptag)
 {
   char fmt[64];
   snprintf(fmt, sizeof(fmt), "/proc/self/fdinfo/%d", fd);
-  FILE * f = fopen(fmt, "r");
+  FILE * f = fopen(fmt, "re");
   if (!f) {
 /*    fprintf(stderr, "failed to open fdinfo %s\n", strerror(errno));*/
     return -1;
@@ -668,7 +668,7 @@ static int bpf_find_probe_type(const char *event_type)
   if (ret < 0 || ret >= (int)sizeof(buf))
     return -1;
 
-  fd = open(buf, O_RDONLY);
+  fd = open(buf, O_RDONLY | O_CLOEXEC);
   if (fd < 0)
     return -1;
   ret = read(fd, buf, sizeof(buf));
@@ -691,7 +691,7 @@ static int bpf_get_retprobe_bit(const char *event_type)
   if (ret < 0 || ret >= (int)sizeof(buf))
     return -1;
 
-  fd = open(buf, O_RDONLY);
+  fd = open(buf, O_RDONLY | O_CLOEXEC);
   if (fd < 0)
     return -1;
   ret = read(fd, buf, sizeof(buf));
@@ -779,7 +779,7 @@ static int bpf_attach_tracing_event(int progfd, const char *event_path, int pid,
   // event path provided.
   if (*pfd < 0) {
     snprintf(buf, sizeof(buf), "%s/id", event_path);
-    efd = open(buf, O_RDONLY, 0);
+    efd = open(buf, O_RDONLY | O_CLOEXEC, 0);
     if (efd < 0) {
       fprintf(stderr, "open(%s): %s\n", buf, strerror(errno));
       return -1;
@@ -839,7 +839,7 @@ int bpf_attach_kprobe(int progfd, enum bpf_probe_attach_type attach_type,
   // yet. Try create the event using debugfs.
   if (pfd < 0) {
     snprintf(buf, sizeof(buf), "/sys/kernel/debug/tracing/%s_events", event_type);
-    kfd = open(buf, O_WRONLY | O_APPEND, 0);
+    kfd = open(buf, O_WRONLY | O_APPEND | O_CLOEXEC, 0);
     if (kfd < 0) {
       fprintf(stderr, "open(%s): %s\n", buf, strerror(errno));
       goto error;
@@ -889,13 +889,13 @@ static int enter_mount_ns(int pid) {
   if ((size_t)snprintf(buf, sizeof(buf), "/proc/%d/ns/mnt", pid) >= sizeof(buf))
     return -1;
 
-  self_fd = open("/proc/self/ns/mnt", O_RDONLY);
+  self_fd = open("/proc/self/ns/mnt", O_RDONLY | O_CLOEXEC);
   if (self_fd < 0) {
     perror("open(/proc/self/ns/mnt)");
     return -1;
   }
 
-  target_fd = open(buf, O_RDONLY);
+  target_fd = open(buf, O_RDONLY | O_CLOEXEC);
   if (target_fd < 0) {
     perror("open(/proc/<pid>/ns/mnt)");
     goto error;
@@ -955,7 +955,7 @@ int bpf_attach_uprobe(int progfd, enum bpf_probe_attach_type attach_type,
   // yet. Try create the event using debugfs.
   if (pfd < 0) {
     snprintf(buf, sizeof(buf), "/sys/kernel/debug/tracing/%s_events", event_type);
-    kfd = open(buf, O_WRONLY | O_APPEND, 0);
+    kfd = open(buf, O_WRONLY | O_APPEND | O_CLOEXEC, 0);
     if (kfd < 0) {
       fprintf(stderr, "open(%s): %s\n", buf, strerror(errno));
       goto error;
@@ -1017,7 +1017,7 @@ static int bpf_detach_probe(const char *ev_name, const char *event_type)
    * it is safe to skip the cleaning up process (write -:... to the file).
    */
   snprintf(buf, sizeof(buf), "/sys/kernel/debug/tracing/%s_events", event_type);
-  fp = fopen(buf, "r");
+  fp = fopen(buf, "re");
   if (!fp) {
     fprintf(stderr, "open(%s): %s\n", buf, strerror(errno));
     goto error;
@@ -1042,7 +1042,7 @@ static int bpf_detach_probe(const char *ev_name, const char *event_type)
     return 0;
 
   snprintf(buf, sizeof(buf), "/sys/kernel/debug/tracing/%s_events", event_type);
-  kfd = open(buf, O_WRONLY | O_APPEND, 0);
+  kfd = open(buf, O_WRONLY | O_APPEND | O_CLOEXEC, 0);
   if (kfd < 0) {
     fprintf(stderr, "open(%s): %s\n", buf, strerror(errno));
     goto error;
@@ -1242,7 +1242,7 @@ int bpf_attach_xdp(const char *dev_name, int progfd, uint32_t flags) {
     memset(&sa, 0, sizeof(sa));
     sa.nl_family = AF_NETLINK;
 
-    sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+    sock = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
     if (sock < 0) {
         fprintf(stderr, "bpf: opening a netlink socket: %s\n", strerror(errno));
         return -1;
