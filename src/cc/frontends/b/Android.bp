@@ -1,0 +1,63 @@
+//
+// Copyright (C) 2019 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+gensrcs {
+    name: "libbccbpf_frontends_b_lexer_sources",
+    srcs: ["lexer.ll"],
+    cmd: "$(location flex) -o $(out) $(in)",
+    output_extension: "cc",
+    tools: ["flex"],
+}
+
+genrule {
+    name: "libbccbpf_frontends_b_parser_sources",
+    srcs: ["parser.yy"],
+    cmd: "$(location bison3) -o $(out) $(in)",
+    out: [
+        "parser.yy.cc",
+    ],
+    tools: ["bison3"],
+}
+
+genrule {
+    name: "libbccbpf_frontends_b_parser_headers",
+    srcs: ["parser.yy"],
+    cmd: "$(location bison3) -o $(genDir)/parser.yy.cc $(in)",
+    out: [
+        "location.hh",
+        "parser.yy.hh",
+        "position.hh",
+        "stack.hh",
+    ],
+    tools: ["bison3"],
+}
+
+cc_library_static {
+    name: "libbccbpf_frontends_b",
+    srcs: ["*.cc"],
+    defaults: ["libbccbpf_defaults"],
+    generated_sources: [
+        "libbccbpf_frontends_b_lexer_sources",
+        "libbccbpf_frontends_b_parser_sources",
+    ],
+    generated_headers: [
+        "libbccbpf_frontends_b_parser_headers",
+    ],
+    static_libs: [
+        "libfl",
+        "libllvm8",
+    ],
+}
