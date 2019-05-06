@@ -34,11 +34,40 @@ cc_defaults {
     ],
 }
 
+cc_defaults {
+    name: "libbbccbpf_defaults",
+    cpp_std: "c++11",
+    cflags: [
+       "-Wno-constant-conversion",
+       "-Wno-format",
+       "-Wno-implicit-fallthrough",
+       "-Wno-missing-field-initializers",
+       "-Wno-non-virtual-dtor",
+       "-Wno-unused-parameter",
+       "-Wno-unused-private-field",
+
+       // BCC will try to look for kernel headers here if BCC_KERNEL_SOURCE
+       // env variable is not defined
+       "-DKERNEL_MODULES_DIR=\"/data/local/tmp/modules\"",
+       "-DBCC_PROG_TAG_DIR=\"/data/local/tmp/bpf\"",
+       "-DLLVM_MAJOR_VERSION=8",
+    ],
+    cppflags: [
+        "-fexceptions",
+    ],
+    header_libs: [
+        "libbccbpf_headers",
+    ],
+}
+
 cc_library_headers {
-    name: "libbpf_headers",
+    name: "libbccbpf_headers",
     vendor_available: false,
     host_supported: false,
-    export_include_dirs: ["src/cc/includes/"],
+    export_include_dirs: [
+        "src/cc/includes/",
+        "src/cc/",
+    ],
     target: {
         linux_bionic: {
             enabled: true,
@@ -63,9 +92,9 @@ cc_library {
     },
 
     header_libs: [
-        "libbpf_headers"
+        "libbccbpf_headers"
     ],
-    export_header_lib_headers: ["libbpf_headers"],
+    export_header_lib_headers: ["libbccbpf_headers"],
     local_include_dirs: ["src/cc"],
 
     defaults: ["bpf_defaults"],
@@ -74,4 +103,26 @@ cc_library {
         "-Wall",
         "-Wextra",
     ],
+}
+
+cc_library_shared {
+    name: "libbccbpf",
+    defaults: ["libbbccbpf_defaults"],
+    srcs: [
+        "src/cc/*.c",
+        "src/cc/*.cc",
+    ],
+    whole_static_libs: [
+        "libbccbpf_api",
+        "libbccbpf_frontends_b",
+        "libbccbpf_frontends_clang",
+        "libbccbpf_usdt",
+        "libclang8",
+        "libllvm8",
+    ],
+    static_libs: [
+        "libelf",
+        "libz",
+    ],
+    export_header_lib_headers: ["libbccbpf_headers"],
 }
